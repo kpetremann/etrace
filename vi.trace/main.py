@@ -3,15 +3,18 @@
 from scapy.all import IP, TCP, UDP, sr, Raw
 import time
 
+
 class ViTrace:
     def __init__(self):
         self.packets = []
         return
 
     def fill_blanks(self, trace):
-        for i in range(1,31):
+        for i in range(1, 31):
             if not trace.get(i):
-                trace[i] = "..."
+                trace[i] = {}
+                trace[i]["hop_ip"] = "..."
+                trace[i]["latency"] = 0
 
     def show_traceroute(self, result, destination):
         print("traceroute to {}".format(destination))
@@ -19,7 +22,11 @@ class ViTrace:
             self.fill_blanks(trace)
             print("")
             for hop in trace:
-                print("path #{}/{}: {}".format(ident, hop, trace[hop]))
+                print(
+                    "path #{}/{}: {} ({}ms)".format(
+                        ident, hop, trace[hop].get("hop_ip"), round(trace[hop].get("latency", 0) * 1000, 2)
+                    )
+                )
                 if trace[hop] == destination:
                     break
 
@@ -48,22 +55,27 @@ class ViTrace:
             verbose=0,
             filter="(tcp and dst portrange 65000-65100) or icmp",
         )
-        
+
         sent = time.time()
 
         result = {}
 
+        # need to integrate seq id to ensure matching sent with receive
         for i in ans:
             hop_ip = i[1][IP].src
             sport = i[0][TCP].sport
             ttl = i[0][IP].ttl
             if not result.get(sport):
                 result[sport] = {}
-            result[sport][ttl] = hop_ip
+            if not result[sport].get(ttl):
+                result[sport][ttl] = {}
+            result[sport][ttl]["hop_ip"] = hop_ip
+            result[sport][ttl]["latency"] = i[1].time - i[0].sent_time
 
         self.show_traceroute(result, destination)
 
-        print("prepration: {}".format(prepared - start))
+        print("")
+        print("preparation: {}".format(prepared - start))
         print("sent: {}".format(sent - prepared))
 
         return
