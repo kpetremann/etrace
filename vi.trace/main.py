@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from scapy.all import IP, TCP, UDP, sr, Raw
-
+import time
 
 class ViTrace:
     def __init__(self):
@@ -28,6 +28,8 @@ class ViTrace:
     def tcpsyn_trace(self, destination="13.210.72.83", parallel=4):
         """TCP syn traceroute."""
 
+        start = time.time()
+
         for src_port in range(65000, 65000 + parallel):
             for ttl in range(1, 31):
                 pkt = (
@@ -37,6 +39,8 @@ class ViTrace:
                 )
                 self.packets.append(pkt)
 
+        prepared = time.time()
+
         ans, unans = sr(
             self.packets,
             timeout=1,
@@ -45,6 +49,8 @@ class ViTrace:
             filter="(tcp and dst portrange 65000-65100) or icmp",
         )
         
+        sent = time.time()
+
         result = {}
 
         for i in ans:
@@ -56,6 +62,10 @@ class ViTrace:
             result[sport][ttl] = hop_ip
 
         self.show_traceroute(result, destination)
+
+        print("prepration: {}".format(prepared - start))
+        print("sent: {}".format(sent - prepared))
+
         return
 
     def main(self):
