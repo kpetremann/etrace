@@ -15,6 +15,7 @@ class ViTrace:
                 trace[i] = {}
                 trace[i]["hop_ip"] = "..."
                 trace[i]["latency"] = 0
+                trace[i]["loss"] = 0
 
     def show_traceroute(self, result, destination):
         print("traceroute to {}".format(destination))
@@ -22,29 +23,36 @@ class ViTrace:
             self.fill_blanks(trace)
             print("")
             for hop in trace:
+                loss_ratio = trace[hop].get("loss", 0) / trace[hop].get("sent", 0)
                 print(
-                    "path #{}/{}: {} ({}ms)".format(
-                        ident, hop, trace[hop].get("hop_ip"), round(trace[hop].get("latency", 0) * 1000, 2)
+                    "path #{}/{}: {} (latency: {}ms, loss: {}%, sent: {}, lost: {})".format(
+                        ident,
+                        hop,
+                        trace[hop].get("hop_ip"),
+                        round(trace[hop].get("latency", 0) * 1000, 2),
+                        loss_ratio * 100,
+                        trace[hop].get("loss", 0),
+                        trace[hop].get("loss", 0),
                     )
                 )
                 if trace[hop] == destination:
                     break
-
         return
 
-    def tcpsyn_trace(self, destination="13.210.72.83", parallel=4):
+    def tcpsyn_trace(self, destination="13.210.72.83", parallel=4, loop=1):
         """TCP syn traceroute."""
 
         start = time.time()
 
         for src_port in range(65000, 65000 + parallel):
             for ttl in range(1, 31):
-                pkt = (
-                    IP(dst=destination, ttl=ttl)
-                    / TCP(flags="S", seq=ttl, sport=src_port, dport=80)
-                    / Raw(str(src_port) + "/" + str(ttl))
-                )
-                self.packets.append(pkt)
+                for i in range(0, loop):
+                    pkt = (
+                        IP(dst=destination, ttl=ttl)
+                        / TCP(flags="S", seq=ttl, sport=src_port, dport=80)
+                        / Raw(str(src_port) + "/" + str(ttl))
+                    )
+                    self.packets.append(pkt)
 
         prepared = time.time()
 
@@ -69,8 +77,23 @@ class ViTrace:
                 result[sport] = {}
             if not result[sport].get(ttl):
                 result[sport][ttl] = {}
+                result[sport][ttl]["loss"] = 0
+                result[sport][ttl]["sent"] = 0
             result[sport][ttl]["hop_ip"] = hop_ip
             result[sport][ttl]["latency"] = i[1].time - i[0].sent_time
+            result[sport][ttl]["sent"] += 1
+
+        for i in unans:
+            sport = i[0][TCP].sport
+            ttl = i[0][IP].ttl
+            if not result.get(sport):
+                result[sport] = {}
+            if not result[sport].get(ttl):
+                result[sport][ttl] = {}
+                result[sport][ttl]["loss"] = 0
+                result[sport][ttl]["sent"] = 0
+            result[sport][ttl]["loss"] += 1
+            result[sport][ttl]["sent"] += 1
 
         self.show_traceroute(result, destination)
 
@@ -81,7 +104,7 @@ class ViTrace:
         return
 
     def main(self):
-        self.tcpsyn_trace()
+        self.tcpsyn_trace(loop=10)
         return
 
 
