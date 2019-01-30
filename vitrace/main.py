@@ -1,7 +1,16 @@
 #!/usr/bin/env python
 
-from scapy.all import IP, TCP, UDP, sr, Raw
 import time
+
+from scapy.all import IP, TCP, UDP, Raw, conf, sr
+from scapy.arch import linux as scapy_linux
+from scapy.arch.bpf import core as scapy_core
+
+import patch_scapy
+
+# monkey patching to fix non-promiscuous mode issues
+scapy_core.attach_filter = patch_scapy.attach_filter_core
+scapy_linux.attach_filter = patch_scapy.attach_filter_linux
 
 
 class ViTrace:
@@ -35,12 +44,15 @@ class ViTrace:
                         trace[hop].get("loss", 0),
                     )
                 )
-                if trace[hop] == destination:
+                if trace[hop].get("hop_ip") == destination:
                     break
         return
 
     def tcpsyn_trace(self, destination="13.210.72.83", parallel=4, loop=1):
         """TCP syn traceroute."""
+        # Non promiscuous mode
+        conf.promisc = 0
+        conf.sniff_promisc = 0
 
         start = time.time()
 
