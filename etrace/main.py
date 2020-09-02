@@ -3,10 +3,9 @@
 import argparse
 import json
 import os
-import time
 from collections import defaultdict
 
-from scapy.all import IP, TCP, UDP, Raw, conf, sr
+from scapy.all import IP, TCP, UDP, Raw, conf, sr, send
 from scapy.arch import linux as scapy_linux
 from scapy.arch.bpf import core as scapy_core
 
@@ -119,8 +118,7 @@ class eTrace:
         # Non promiscuous mode
         conf.promisc = 0
         conf.sniff_promisc = 0
-
-        start = time.time()
+        reset_packets = []
 
         seq_id = 1
         for src_port in range(65000, 65000 + self.nb_path):
@@ -133,7 +131,11 @@ class eTrace:
                     self.packets.append(pkt)
                     seq_id += 1
 
-        prepared = time.time()
+                    reset = (
+                        IP(dst=self.destination, ttl=ttl)
+                        / TCP(flags="R", seq=seq_id, sport=src_port, dport=443)
+                    )
+                    reset_packets.append(reset)
 
         ans, unans = sr(
             self.packets,
@@ -142,6 +144,9 @@ class eTrace:
             verbose=0,
             filter=f"(tcp and dst portrange 65000-{65000 + self.nb_path}) or icmp",
         )
+
+        # close TCP requests
+        send(reset_packets, inter=0, verbose=0)
 
         packets = self._rematch(ans, unans)
 
