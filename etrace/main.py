@@ -11,7 +11,7 @@ from scapy.arch import linux as scapy_linux
 from scapy.arch.bpf import core as scapy_core
 
 
-class ViTrace:
+class eTrace:
     def __init__(self, destination, nb_path, nb_per_path, pretty):
         self.destination = destination
         self.nb_path = nb_path
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    trace = ViTrace(args.destination, args.paths, args.nb, args.pretty)
+    trace = eTrace(args.destination, args.paths, args.nb, args.pretty)
     trace.tcpsyn_trace()
 
     print(trace.find_links())
