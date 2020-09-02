@@ -59,7 +59,7 @@ class eTrace:
 
                 previous_hop = "self" if hop == 1 else path[hop - 1]["hop_ip"]
                 hop_ip = info["hop_ip"]
-                nb_packets = info["sent"] - info["loss"]
+                nb_packets = info["sent"]
 
                 results[hop][previous_hop][hop_ip] += nb_packets
 
