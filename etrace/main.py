@@ -30,7 +30,7 @@ class eTrace:
                 trace[i]["loss"] = 0
 
     def show_traceroute(self):
-        print("traceroute to {}".format())
+        print("traceroute to {}".format(self.destination))
         for ident, trace in self.result.items():
             self.fill_blanks(trace)
             print("")
@@ -52,14 +52,19 @@ class eTrace:
 
     def find_links(self):
         for identifier, path in self.result.items():
-            previous_hop = "self"
             for hop, info in path.items():
+
                 if not "hop_ip" in info:
                     continue
+
+                previous_hop = "self" if hop == 1 else path[hop - 1]["hop_ip"]
                 hop_ip = info["hop_ip"]
                 nb_packets = info["sent"] - info["loss"]
+
                 self.links[previous_hop][hop_ip] += nb_packets
-                previous_hop = hop_ip
+
+                if hop_ip == self.destination:
+                    break
 
         if self.pretty:
             return json.dumps(self.links, indent=2)
