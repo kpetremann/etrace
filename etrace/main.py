@@ -51,9 +51,10 @@ class eTrace:
                     break
 
     def find_links(self):
+        # get info of all paths
+        results = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         for identifier, path in self.result.items():
             for hop, info in path.items():
-
                 if not "hop_ip" in info:
                     continue
 
@@ -61,10 +62,16 @@ class eTrace:
                 hop_ip = info["hop_ip"]
                 nb_packets = info["sent"] - info["loss"]
 
-                self.links[previous_hop][hop_ip] += nb_packets
+                results[hop][previous_hop][hop_ip] += nb_packets
 
                 if hop_ip == self.destination:
                     break
+
+        # reorder by hop instead of paths
+        for hop, hop_data in results.items():
+            for a_end, a_end_info in hop_data.items():
+                for z_end, z_end_count in a_end_info.items():
+                    self.links[a_end][z_end] += z_end_count
 
         if self.pretty:
             return json.dumps(self.links, indent=2)
